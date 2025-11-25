@@ -1,16 +1,22 @@
-# ChatBot SaaS Platform - MVP
+# ChatBot SaaS Platform - Production Ready MVP
 
-A modern SaaS platform for creating and managing AI chatbots powered by n8n workflows, built with Next.js, Prisma, Socket.io, and Shadcn UI.
+A modern, production-ready SaaS platform for creating and managing AI chatbots powered by n8n workflows, built with Next.js, Prisma, Socket.io, Redis, and Shadcn UI.
 
 ## Features
 
+- 🔐 **Authentication** - Secure user authentication with NextAuth.js and bcrypt
+- 👥 **User Roles** - Role-based access control (USER, ADMIN)
 - 🤖 **AI Chatbot Management** - Create, edit, and delete chatbots with ease
 - ⚡ **n8n Integration** - Automatic workflow creation and webhook management
 - 💬 **Real-time Chat** - WebSocket-powered bidirectional messaging
-- 🎨 **Modern UI** - Beautiful dashboard built with Shadcn UI and Tailwind CSS
+- 🎨 **Modern UI** - Beautiful dashboard and landing page with Shadcn UI
 - 🌙 **Dark Mode** - Full dark mode support
 - 📊 **Analytics** - Track messages and conversations
 - 🔄 **Live Updates** - Real-time message synchronization across clients
+- ⚡ **Redis Caching** - High-performance caching layer for improved speed
+- 🚦 **Rate Limiting** - Protect your API with Redis-based rate limiting
+- 📝 **Structured Logging** - Production-ready logging with Pino
+- 🏥 **Health Checks** - Monitor system health and service status
 
 ## Tech Stack
 
@@ -18,9 +24,12 @@ A modern SaaS platform for creating and managing AI chatbots powered by n8n work
 - **UI**: Shadcn UI, Tailwind CSS v4, Lucide Icons
 - **Backend**: Next.js API Routes, Custom Node.js Server
 - **Database**: PostgreSQL with Prisma ORM
+- **Caching**: Redis with ioredis
+- **Authentication**: NextAuth.js with JWT
 - **Real-time**: Socket.io for WebSocket connections
 - **Forms**: React Hook Form + Zod validation
 - **State**: Zustand for client state management
+- **Logging**: Pino for structured logging
 - **Automation**: n8n workflow integration
 
 ## Prerequisites
@@ -29,6 +38,7 @@ Before you begin, ensure you have:
 
 - Node.js 18+ installed
 - PostgreSQL database running
+- Redis server running (local or cloud)
 - n8n instance (self-hosted or cloud) with API access
 - pnpm package manager
 
@@ -55,6 +65,13 @@ Before you begin, ensure you have:
    N8N_API_URL="http://localhost:5678/api/v1"
    N8N_API_KEY="your-n8n-api-key"
    
+   # NextAuth
+   NEXTAUTH_URL="http://localhost:3000"
+   NEXTAUTH_SECRET="your-secret-here"  # Generate with: openssl rand -base64 32
+   
+   # Redis
+   REDIS_URL="redis://localhost:6379"
+   
    # Server
    PORT=3000
    NODE_ENV=development
@@ -63,16 +80,43 @@ Before you begin, ensure you have:
 4. **Set up the database**
    ```bash
    # Generate Prisma client
-   npx prisma generate
+   pnpx prisma generate
    
-   # Push schema to database
-   npx prisma db push
+   # Note: Database migrations are handled via the adapter in Prisma 7
+   # The schema will be synced automatically when you run the app
    
    # (Optional) Open Prisma Studio to view data
-   npx prisma studio
+   pnpx prisma studio
    ```
 
-5. **Start the development server**
+5. **Set up Redis**
+   
+   **Option A: Local Redis**
+   ```bash
+   # Install Redis (macOS)
+   brew install redis
+   brew services start redis
+   
+   # Install Redis (Ubuntu)
+   sudo apt-get install redis-server
+   sudo systemctl start redis
+   
+   # Install Redis (Windows)
+   # Download from https://github.com/microsoftarchive/redis/releases
+   ```
+   
+   **Option B: Cloud Redis**
+   - Use [Upstash](https://upstash.com/) or [Redis Cloud](https://redis.com/cloud/)
+   - Update `REDIS_URL` in `.env.local`
+
+6. **Create an admin user**
+   
+   After starting the app, sign up and manually update the user role in the database:
+   ```sql
+   UPDATE users SET role = 'ADMIN' WHERE email = 'your-email@example.com';
+   ```
+
+7. **Start the development server**
    ```bash
    pnpm dev
    ```
@@ -85,32 +129,43 @@ Before you begin, ensure you have:
 saas-n8n/
 ├── app/                          # Next.js app directory
 │   ├── api/                      # API routes
-│   │   └── chatbots/            # Chatbot CRUD endpoints
+│   │   ├── auth/                # Authentication endpoints
+│   │   ├── chatbots/            # Chatbot CRUD endpoints
+│   │   └── health/              # Health check endpoint
+│   ├── auth/                    # Auth pages (login, signup)
 │   ├── dashboard/               # Dashboard pages
-│   │   ├── chatbots/           # Chatbot management
-│   │   └── layout.tsx          # Dashboard layout
-│   ├── globals.css             # Global styles
-│   ├── layout.tsx              # Root layout
-│   └── page.tsx                # Landing page
+│   └── page.tsx                 # Landing page
 ├── components/                  # React components
 │   ├── chat/                   # Chat interface components
 │   ├── dashboard/              # Dashboard components
+│   ├── landing/                # Landing page components
 │   ├── providers/              # Context providers
 │   └── ui/                     # Shadcn UI components
 ├── lib/                        # Utility libraries
+│   ├── auth.ts                 # NextAuth configuration
+│   ├── cache.ts                # Redis caching utilities
+│   ├── logger.ts               # Pino logger setup
 │   ├── n8n-client.ts          # n8n API client
+│   ├── password.ts            # Password hashing
 │   ├── prisma.ts              # Prisma client
+│   ├── rate-limit.ts          # Rate limiting
+│   ├── redis.ts               # Redis client
 │   └── utils.ts               # Helper functions
 ├── prisma/                     # Database schema
-│   └── schema.prisma          # Prisma schema
+│   ├── schema.prisma          # Prisma schema
+│   └── prisma.config.ts       # Prisma 7 config
 ├── types/                      # TypeScript types
-│   ├── chatbot.ts             # Chatbot types
-│   └── socket.ts              # Socket.io types
-├── server.ts                   # Custom server with Socket.io
-└── package.json               # Dependencies
+├── middleware.ts               # Next.js middleware (auth)
+└── server.ts                   # Custom server with Socket.io
 ```
 
 ## Usage
+
+### Authentication
+
+1. **Sign Up**: Navigate to `/auth/signup` to create an account
+2. **Login**: Use `/auth/login` to access your account
+3. **Logout**: Click your profile in the dashboard sidebar
 
 ### Creating a Chatbot
 
@@ -139,37 +194,28 @@ The system will automatically:
 - **Activate/Deactivate**: Toggle chatbot status
 - **Delete**: Remove chatbot and associated n8n workflow
 
-## n8n Workflow Structure
+## User Roles
 
-Each chatbot gets an n8n workflow with:
+### USER (Default)
+- Create and manage own chatbots
+- Access to dashboard and chat features
+- View own analytics
 
-1. **Webhook Trigger** - Receives messages from the platform
-2. **Process Message** - Processes the incoming message
-3. **Respond to Webhook** - Sends response back to the platform
-
-You can customize the workflow in n8n to add:
-- AI model integration (OpenAI, Anthropic, etc.)
-- Database lookups
-- External API calls
-- Complex business logic
-
-## WebSocket Events
-
-### Client to Server
-- `conversation:join` - Join a conversation room
-- `conversation:leave` - Leave a conversation room
-- `message:send` - Send a message
-
-### Server to Client
-- `message:new` - New message received
-- `typing:start` - Bot is typing
-- `typing:stop` - Bot stopped typing
-- `message:error` - Error occurred
+### ADMIN
+- All USER permissions
+- Access to admin dashboard
+- Manage all users
+- View platform-wide analytics
 
 ## API Endpoints
 
+### Authentication
+- `POST /api/auth/signup` - Create a new user
+- `POST /api/auth/signin` - Sign in (handled by NextAuth)
+- `POST /api/auth/signout` - Sign out
+
 ### Chatbots
-- `GET /api/chatbots` - List all chatbots
+- `GET /api/chatbots` - List user's chatbots (cached)
 - `POST /api/chatbots` - Create a new chatbot
 - `GET /api/chatbots/:id` - Get chatbot details
 - `PUT /api/chatbots/:id` - Update chatbot
@@ -179,15 +225,37 @@ You can customize the workflow in n8n to add:
 - `GET /api/chatbots/:id/messages` - Get message history
 - `POST /api/chatbots/:id/messages` - Send a message
 
+### Health
+- `GET /api/health` - Check system health
+
+## Caching Strategy
+
+The platform uses Redis for caching:
+
+- **Chatbot Lists**: Cached for 5 minutes, invalidated on create/update/delete
+- **Rate Limiting**: Sliding window algorithm
+- **Session Data**: Managed by NextAuth
+
+## Rate Limits
+
+- **API**: 100 requests/minute
+- **Auth**: 5 requests/minute
+- **Messages**: 20 messages/minute
+
 ## Development
 
 ### Running Prisma Studio
 ```bash
-npx prisma studio
+pnpx prisma studio
 ```
 
 ### Viewing Logs
 The custom server logs WebSocket connections and events to the console.
+
+### Monitoring Health
+```bash
+curl http://localhost:3000/api/health
+```
 
 ### Building for Production
 ```bash
@@ -195,12 +263,36 @@ pnpm build
 pnpm start
 ```
 
+## Deployment
+
+### Environment Variables
+Ensure all environment variables are set in your production environment.
+
+### Database
+- Run migrations or use Prisma's db push
+- Set up connection pooling for better performance
+
+### Redis
+- Use a production Redis instance (Redis Cloud, AWS ElastiCache, etc.)
+- Configure persistence and backups
+
+### Security
+- Use strong `NEXTAUTH_SECRET`
+- Enable HTTPS in production
+- Configure CORS appropriately
+- Set up rate limiting at the edge (Cloudflare, etc.)
+
 ## Troubleshooting
 
 ### Database Connection Issues
 - Ensure PostgreSQL is running
 - Check DATABASE_URL in `.env.local`
-- Run `npx prisma db push` to sync schema
+- Verify network connectivity
+
+### Redis Connection Issues
+- Ensure Redis is running
+- Check REDIS_URL configuration
+- Verify Redis is accepting connections
 
 ### n8n Integration Issues
 - Verify n8n is accessible at N8N_API_URL
@@ -212,16 +304,29 @@ pnpm start
 - Ensure custom server is running (not `next dev`)
 - Verify port 3000 is not blocked
 
-## Future Enhancements
+### Authentication Issues
+- Verify NEXTAUTH_SECRET is set
+- Check NEXTAUTH_URL matches your domain
+- Clear browser cookies and try again
 
-- [ ] User authentication with NextAuth.js
-- [ ] Multi-tenancy support
-- [ ] Advanced analytics dashboard
-- [ ] Chatbot templates
-- [ ] Custom branding per chatbot
-- [ ] Export conversation history
-- [ ] Rate limiting
-- [ ] API key management for external integrations
+## Performance Optimization
+
+- ✅ Redis caching for frequently accessed data
+- ✅ Database indexes on common queries
+- ✅ Connection pooling with pg
+- ✅ Rate limiting to prevent abuse
+- ✅ Efficient WebSocket connections
+- ✅ Optimized Prisma queries with proper includes
+
+## Security Features
+
+- ✅ Password hashing with bcrypt
+- ✅ JWT-based session management
+- ✅ Role-based access control (RBAC)
+- ✅ Rate limiting on sensitive endpoints
+- ✅ Input validation with Zod
+- ✅ SQL injection protection via Prisma
+- ✅ XSS protection via React
 
 ## License
 
@@ -230,3 +335,4 @@ MIT
 ## Support
 
 For issues and questions, please open an issue on GitHub.
+

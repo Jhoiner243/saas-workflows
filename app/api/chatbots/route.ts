@@ -1,19 +1,29 @@
+import { requireAuth } from '@/lib/auth';
+import { Cache, CacheTTL } from '@/lib/cache';
+import { logger } from '@/lib/logger';
 import { n8nClient } from '@/lib/n8n-client';
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /api/chatbots
- * List all chatbots
+ * List all chatbots for the authenticated user
  */
 export async function GET() {
   try {
-    // For MVP, we'll use a default user ID
-    // In production, this would come from authentication
-    const defaultUserId = 'default-user';
+    const user = await requireAuth();
+    
+    // Try to get from cache first
+    const cacheKey = Cache.key('chatbots', user.id);
+    const cached = await Cache.get(cacheKey);
+    
+    if (cached) {
+      logger.debug({ userId: user.id }, 'Chatbots retrieved from cache');
+      return NextResponse.json(cached);
+    }
 
     const chatbots = await prisma.chatbot.findMany({
-      where: { userId: defaultUserId },
+      where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {
@@ -25,9 +35,19 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ chatbots });
+    const response = { chatbots };
+    
+    // Cache for 5 minutes
+    await Cache.set(cacheKey, response, CacheTTL.MEDIUM);
+    
+    logger.info({ userId: user.id, count: chatbots.length }, 'Chatbots retrieved');
+    return NextResponse.json(response);
   } catch (error) {
-    console.error('Error fetching chatbots:', error);
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    logger.error({ error }, 'Error fetching chatbots');
     return NextResponse.json(
       { error: 'Failed to fetch chatbots' },
       { status: 500 }
@@ -41,6 +61,7 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireAuth();
     const body = await request.json();
     const { name, description, config } = body;
 
@@ -51,29 +72,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For MVP, we'll use a default user ID
-    const defaultUserId = 'default-user';
-
-    // Ensure default user exists
-    await prisma.user.upsert({
-      where: { id: defaultUserId },
-      update: {},
-      create: {
-        id: defaultUserId,
-        email: 'demo@example.com',
-        name: 'Demo User',
-      },
-    });
-
     // Create chatbot in database first to get ID
     const chatbot = await prisma.chatbot.create({
       data: {
         name,
         description,
         config: config || {},
-        userId: defaultUserId,
+        userId: user.id,
       },
     });
+
+    logger.info({ userId: user.id, chatbotId: chatbot.id }, 'Chatbot created');
 
     // Create n8n workflow
     try {
@@ -91,16 +100,23 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // Invalidate cache
+      await Cache.delete(Cache.key('chatbots', user.id));
+
+      logger.info({ chatbotId: chatbot.id, workflowId }, 'n8n workflow created');
       return NextResponse.json({ chatbot: updatedChatbot }, { status: 201 });
     } catch (n8nError) {
       // If n8n workflow creation fails, still return the chatbot
       // but mark it as inactive
-      console.error('n8n workflow creation failed:', n8nError);
+      logger.error({ error: n8nError, chatbotId: chatbot.id }, 'n8n workflow creation failed');
       
       const updatedChatbot = await prisma.chatbot.update({
         where: { id: chatbot.id },
         data: { isActive: false },
       });
+
+      // Invalidate cache
+      await Cache.delete(Cache.key('chatbots', user.id));
 
       return NextResponse.json(
         {
@@ -111,7 +127,11 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Error creating chatbot:', error);
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    logger.error({ error }, 'Error creating chatbot');
     return NextResponse.json(
       { error: 'Failed to create chatbot' },
       { status: 500 }
