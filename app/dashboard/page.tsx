@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Bot, MessageSquare } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
 interface Stats {
@@ -11,6 +12,7 @@ interface Stats {
 }
 
 export default function DashboardPage() {
+  const { data: session } = useSession();
   const [stats, setStats] = useState<Stats>({
     totalChatbots: 0,
     totalMessages: 0,
@@ -73,10 +75,19 @@ export default function DashboardPage() {
     },
   ];
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  };
+
   return (
     <div className="space-y-6 animate-in">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          {getGreeting()}{session?.user?.name ? `, ${session.user.name.split(' ')[0]}` : ''}! 👋
+        </h1>
         <p className="text-muted-foreground">
           Welcome to your ChatBot SaaS platform
         </p>

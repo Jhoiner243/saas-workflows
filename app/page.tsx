@@ -1,3 +1,4 @@
+import { Navbar } from '@/components/landing/navbar';
 import { PricingCard } from '@/components/landing/pricing-card';
 import { Testimonial } from '@/components/landing/testimonial';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -144,8 +145,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
+      <Navbar />
+      
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-background via-background to-primary/5 py-20 sm:py-32">
+      <section className="relative overflow-hidden bg-gradient-to-br from-background via-background to-primary/5 py-20 sm:py-32 pt-32">
         <div className="absolute inset-0 bg-grid-white/[0.02] bg-[size:60px_60px]" />
         <div className="container relative mx-auto px-4">
           <div className="mx-auto max-w-3xl text-center">

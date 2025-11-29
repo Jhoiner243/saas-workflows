@@ -1,3 +1,4 @@
+import { SessionProvider } from "@/components/providers/session-provider";
 import { SocketProvider } from "@/components/providers/socket-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -30,18 +31,21 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <SocketProvider>
-            {children}
-            <Toaster />
-          </SocketProvider>
-        </ThemeProvider>
+        <SessionProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <SocketProvider>
+              {children}
+              <Toaster />
+            </SocketProvider>
+          </ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
   );
 }
+
